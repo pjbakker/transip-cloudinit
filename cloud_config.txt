@@ -1,0 +1,49 @@
+#cloud-config
+<?=$resize_rootfs?>
+
+hostname: <?=$hostname.PHP_EOL?>
+fqdn: <?=$hostname?>.dc1.<?=$domain.PHP_EOL?>
+users:
+ - name: <?=account_name.PHP_EOL?>
+   ssh_authorized_keys:
+     - <?=$ssh_public_key.PHP_EOL?>
+   sudo: ['ALL=(ALL) NOPASSWD:ALL']
+   shell: /bin/bash
+write_files:
+- path: /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+  content: |
+    network: {config: disabled}
+- path: /etc/netplan/60-private-init.yaml
+  content: |
+    network:
+     version: 2
+     renderer: networkd
+     ethernets:
+      ens7:
+       dhcp4: false
+       addresses: [<?=$ip?>/24]
+      ens8:
+       dhcp4: false
+       addresses: [<?=$ip?>/24]
+- path: /etc/sysctl.d/60-disable-ipv6.conf
+  owner: root
+  content: |
+    net.ipv6.conf.all.disable_ipv6=1
+    net.ipv6.conf.default.disable_ipv6=1
+apt:
+  preserve_sources_list: true
+  sources:
+    salt:
+      source: 'deb [signed-by=/usr/share/keyrings/salt-archive-keyring.gpg] https://repo.saltproject.io/py3/ubuntu/20.04/amd64/latest focal main'
+runcmd:
+- netplan --debug apply
+- sleep 10
+- sysctl -w net.ipv6.conf.all.disable_ipv6=1
+- sysctl -w net.ipv6.conf.default.disable_ipv6=1
+- curl -fsSL -o /usr/share/keyrings/salt-archive-keyring.gpg https://repo.saltproject.io/py3/ubuntu/20.04/amd64/latest/salt-archive-keyring.gpg
+- apt-get -y update
+- apt-get -y install salt-minion
+- [sed, -ir, -e, 's/^#master:.*$/master: <?=$salt_master_ip?>/', /etc/salt/minion]
+- [sed, -ir, -e, 's/^#id:.*$/id: <?=$hostname?>/', /etc/salt/minion]
+- [sed, -ir, -e, 's/^#rejected_retry:.*$/rejected_retry: True/', /etc/salt/minion]
+- service salt-minion restart
