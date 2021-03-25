@@ -54,9 +54,17 @@ $api = new TransipAPI(
     $config['api_token']
 );
 
-$response = $api->test()->test();
-if ($response === true)
-    echo 'API connection successful!'.PHP_EOL;
+try
+{
+    $response = $api->test()->test();
+    if ($response === true)
+        echo 'API connection successful!'.PHP_EOL;
+}
+catch (RuntimeException $e)
+{
+    echo 'Fatal Error: '.$e->getMessage().PHP_EOL;
+    exit(1);
+}
 
 echo "Forcing re-install of ".$host_id.PHP_EOL;
 
